@@ -255,6 +255,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  procstatelog(p);
   pushreadylist(p);
 
   release(&p->lock);
@@ -294,7 +295,8 @@ fork(void)
     return -1;
   }
 
-  np->priority = 0;
+  np->priority = 149;
+  np->statelogenabled = 0;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -327,7 +329,9 @@ fork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  procstatelog(np); // Initial state log
   np->state = RUNNABLE;
+  procstatelog(np);
   pushreadylist(np);
   release(&np->lock);
 
@@ -336,7 +340,7 @@ fork(void)
 
 // Fork but with a priority level for scheduling.
 int
-priorfork(int priority)
+priorfork(int priority, int statelogenabled)
 {
   int i, pid;
   struct proc *np;
@@ -348,6 +352,7 @@ priorfork(int priority)
   }
 
   np->priority = priority;
+  np->statelogenabled = statelogenabled;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -380,7 +385,9 @@ priorfork(int priority)
   release(&wait_lock);
 
   acquire(&np->lock);
+  procstatelog(np); // Initial state log
   np->state = RUNNABLE;
+  procstatelog(np);
   pushreadylist(np);
   release(&np->lock);
 
@@ -439,6 +446,7 @@ exit(int status)
 
   p->xstate = status;
   p->state = ZOMBIE;
+  procstatelog(p);
 
   release(&wait_lock);
 
@@ -525,8 +533,10 @@ scheduler(void)
     // Switch to chosen process.  It is the process's job
     // to release its lock and then reacquire it
     // before jumping back to us.
+    p->startrunningticks = ticks;
     p->state = RUNNING;
     c->proc = p;
+    procstatelog(p);
     swtch(&c->context, &p->context);
 
     // Process is done running for now.
@@ -571,9 +581,29 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
+  procstatelog(p);
   pushreadylist(p);
   sched();
   release(&p->lock);
+}
+
+// Aging
+void
+aging(void)
+{
+  // Currently not implemented
+}
+
+// Implicit yield is called on timer interrupt
+void
+implicityield(void)
+{
+  struct proc *p = myproc();
+  if(ticks - p->startrunningticks >= 1) {
+    // yield round robin scheduling
+    // actually ticks - p->startrunningticks should be 1
+    yield();
+  }
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -612,7 +642,7 @@ sleep(void *chan, struct spinlock *lk)
   // guaranteed that we won't miss any wakeup
   // (wakeup locks p->lock),
   // so it's okay to release lk.
-  // mp3: also need to acquire channel lock
+  // mp2: also need to acquire channel lock
 
   acquire(&p->lock);  //DOC: sleeplock1
   if((cn = findchannel(chan)) == 0 && (cn = allocchannel(chan)) == 0) {
@@ -623,6 +653,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+  procstatelog(p);
 
   if((pn = allocproclistnode(p)) == 0) {
     panic("sleep: allocproclistnode");
@@ -668,6 +699,7 @@ wakeup(void *chan)
       panic("wakeup: wrong channel");
     }
     p->state = RUNNABLE;
+    procstatelog(p);
     pushreadylist(p);
     release(&p->lock);
   }
@@ -699,6 +731,7 @@ kill(int pid)
           panic("kill: findproclist");
         }
         p->state = RUNNABLE;
+        procstatelog(p);
         // remove from channel and push to readylist
         removeproclist(&cn->pl, pn);
         freeproclistnode(pn);
@@ -792,7 +825,38 @@ procdump(void)
   }
 }
 
-// for mp3
+// for mp2
+char*
+procstate2str(enum procstate state)
+{
+  switch(state) {
+    case USED:     return "new";
+    case SLEEPING: return "waiting";
+    case RUNNABLE: return "ready";
+    case RUNNING:  return "running";
+    case UNUSED:   return "exit";
+    case ZOMBIE:   return "exit";
+    default:       return "unknown";
+  }
+}
+
+// Log the state of the current process with a given index.
+void
+proclog(struct proc* p, int tag)
+{
+  printf("proclog: pid=%d, ticks=%d, tag=%d, state=\"%s\", priority=%d\n",
+          p->pid, ticks, tag, procstate2str(p->state), p->priority);
+}
+
+// Log a process state change before it happens
+void
+procstatelog(struct proc *p)
+{
+  if(!p->statelogenabled) return; // process state logging of this process is disabled
+  printf("procstatelog: pid=%d, ticks=%d, state=\"%s\", priority=%d\n",
+          p->pid, ticks, procstate2str(p->state), p->priority);
+}
+
 // initialize process list related data structures.
 void
 proclistinit(void)
@@ -861,6 +925,17 @@ initproclist(struct proclist *pl)
   pl->tail->next = 0;
   pl->tail->prev = pl->head;
   initlock(&pl->lock, "proclist");
+}
+
+// get the size of a proclist.
+int
+sizeproclist(struct proclist *pl)
+{
+  int size;
+  acquire(&pl->lock);
+  size = pl->size;
+  release(&pl->lock);
+  return size;
 }
 
 // find a proclistnode in a proclist.
@@ -955,7 +1030,7 @@ pushbackproclist(struct proclist *pl, struct proclistnode *pn)
 
 // initialize a sortedproclist.
 void
-initsortedproclist(struct sortedproclist *pl, int (*cmp)(struct proclistnode *, struct proclistnode *))
+initsortedproclist(struct sortedproclist *pl, int (*cmp)(struct proc *, struct proc *))
 {
   int i;
   pl->size = 0;
@@ -972,6 +1047,17 @@ initsortedproclist(struct sortedproclist *pl, int (*cmp)(struct proclistnode *, 
   pl->tail->prev = pl->head;
   pl->cmp = cmp;
   initlock(&pl->lock, "sortedproclist");
+}
+
+// get the size of a sortedproclist.
+int
+sizesortedproclist(struct sortedproclist *spl)
+{
+  int size;
+  acquire(&spl->lock);
+  size = spl->size;
+  release(&spl->lock);
+  return size;
 }
 
 // pop and return the first element of a sortedproclist
@@ -1001,7 +1087,7 @@ pushsortedproclist(struct sortedproclist *pl, struct proclistnode *pn)
   acquire(&pl->lock);
   pl->size++;
   for(pn1 = pl->head->next; pn1 != pl->tail; pn1 = pn1->next){
-    if(pl->cmp(pn, pn1) < 0){
+    if(pl->cmp(pn->p, pn1->p) > 0){
       break;
     }
   }
@@ -1010,6 +1096,23 @@ pushsortedproclist(struct sortedproclist *pl, struct proclistnode *pn)
   pn1->prev->next = pn;
   pn1->prev = pn;
   release(&pl->lock);
+}
+
+// compare a process with the first element of a sortedproclist
+int
+cmptopsortedproclist(struct sortedproclist *spl, struct proc *p)
+{
+  struct proclistnode *pn;
+  int ret;
+  acquire(&spl->lock);
+  if(spl->size == 0){
+    release(&spl->lock);
+    return 1; // empty list, return 1 to indicate that p is greater than the first element
+  }
+  pn = spl->head->next;
+  ret = spl->cmp(p, pn->p);
+  release(&spl->lock);
+  return ret;
 }
 
 // allocate a channel, lock and return if available,

@@ -31,9 +31,23 @@ uint64
 sys_priorfork(void)
 {
   // TODO
-  int n;
-  argint(0, &n);
-  return priorfork(n);
+  int priority, statelogenabled;
+  argint(0, &priority);
+  argint(1, &statelogenabled);
+  return priorfork(priority, statelogenabled);
+}
+
+uint64
+sys_proclog(void)
+{
+  // TODO
+  struct proc *p = myproc();
+  int tag;
+  argint(0, &tag);
+  acquire(&p->lock);
+  proclog(p, tag);
+  release(&p->lock);
+  return 0;
 }
 
 uint64

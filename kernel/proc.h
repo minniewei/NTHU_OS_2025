@@ -97,6 +97,7 @@ struct proc {
 
   // these are private to the process, so p->lock need not be held.
   int priority;                // Priority of the process
+  int statelogenabled;         // if 1, procstatelog is enabled for this process
   uint64 kstack;               // Virtual address of kernel stack
   uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
@@ -105,9 +106,12 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // scheduler related
+  int startrunningticks;       // ticks when the process started running
 };
 
-// for mp3
+// for mp2
 struct proclistnode {
   int used;
   struct proc *p;
@@ -129,7 +133,7 @@ struct sortedproclist {
   struct proclistnode buf[2]; // head and tail sentinel nodes
   struct proclistnode *head;
   struct proclistnode *tail;
-  int (*cmp)(struct proclistnode *, struct proclistnode *);
+  int (*cmp)(struct proc *, struct proc *);
   struct spinlock lock;
 };
 
