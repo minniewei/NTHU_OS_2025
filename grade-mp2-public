@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+
+import re
+from gradelib import *
+
+runner = Runner(save("xv6.out"))
+
+# ======================================================================
+#  Helper Functions for Page Table Matching
+# ======================================================================
+
+def _match_baseline_pagetable(runner):
+    """Matches the baseline page table state with 4 user pages."""
+    runner.match(r'^page table 0x[0-9a-f]+')
+    # Low-address user mappings
+    runner.match(r'^  0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^    0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^      0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V R X U$')
+    runner.match(r'^      1: pte=0x[0-9a-f]+ va=0x0000000000001000 pa=0x[0-9a-f]+ V R W U$')
+    runner.match(r'^      2: pte=0x[0-9a-f]+ va=0x0000000000002000 pa=0x[0-9a-f]+ V R W$')
+    runner.match(r'^      3: pte=0x[0-9a-f]+ va=0x0000000000003000 pa=0x[0-9a-f]+ V R W U$')
+    # High-address kernel/trampoline mappings
+    runner.match(r'^  255: pte=0x[0-9a-f]+ va=0x0000003fc0000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^    511: pte=0x[0-9a-f]+ va=0x0000003fffe00000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^      509: pte=0x[0-9a-f]+ va=0x0000003fffffd000 pa=0x[0-9a-f]+ V R U$')
+    runner.match(r'^      510: pte=0x[0-9a-f]+ va=0x0000003fffffe000 pa=0x[0-9a-f]+ V R W$')
+    runner.match(r'^      511: pte=0x[0-9a-f]+ va=0x0000003ffffff000 pa=0x[0-9a-f]+ V R X$')
+    runner.match('') # Match trailing blank line
+
+def _match_pagetable_with_faulted_page_5(runner):
+    """Matches the page table state after a page fault at va=0x5000."""
+    runner.match(r'^page table 0x[0-9a-f]+')
+    runner.match(r'^  0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^    0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^      0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V R X U$')
+    runner.match(r'^      1: pte=0x[0-9a-f]+ va=0x0000000000001000 pa=0x[0-9a-f]+ V R W U$')
+    runner.match(r'^      2: pte=0x[0-9a-f]+ va=0x0000000000002000 pa=0x[0-9a-f]+ V R W$')
+    runner.match(r'^      3: pte=0x[0-9a-f]+ va=0x0000000000003000 pa=0x[0-9a-f]+ V R W U$')
+    # The new, faulted-in page!
+    runner.match(r'^      5: pte=0x[0-9a-f]+ va=0x0000000000005000 pa=0x[0-9a-f]+ V R W X U$')
+    runner.match(r'^  255: pte=0x[0-9a-f]+ va=0x0000003fc0000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^    511: pte=0x[0-9a-f]+ va=0x0000003fffe00000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^      509: pte=0x[0-9a-f]+ va=0x0000003fffffd000 pa=0x[0-9a-f]+ V R U$')
+    # Note: Corrected a typo here from [0-_a-f] to [0-9a-f] for robustness
+    runner.match(r'^      510: pte=0x[0-9a-f]+ va=0x0000003fffffe000 pa=0x[0-9a-f]+ V R W$')
+    runner.match(r'^      511: pte=0x[0-9a-f]+ va=0x0000003ffffff000 pa=0x[0-9a-f]+ V R X$')
+    runner.match('')
+
+def _match_madvise_pagetable(runner, va_5000_line_regex):
+    """Matches the page table, using a specific regex for the va=0x5000 entry."""
+    runner.match(r'^page table 0x[0-9a-f]+')
+    runner.match(r'^  0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^    0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^      0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V R X U$')
+    runner.match(r'^      1: pte=0x[0-9a-f]+ va=0x0000000000001000 pa=0x[0-9a-f]+ V R W U$')
+    runner.match(r'^      2: pte=0x[0-9a-f]+ va=0x0000000000002000 pa=0x[0-9a-f]+ V R W$')
+    runner.match(r'^      3: pte=0x[0-9a-f]+ va=0x0000000000003000 pa=0x[0-9a-f]+ V R W U$')
+    # This is the line that changes, so we use the provided regex.
+    runner.match(va_5000_line_regex)
+    runner.match(r'^  255: pte=0x[0-9a-f]+ va=0x0000003fc0000000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^    511: pte=0x[0-9a-f]+ va=0x0000003fffe00000 pa=0x[0-9a-f]+ V$')
+    runner.match(r'^      509: pte=0x[0-9a-f]+ va=0x0000003fffffd000 pa=0x[0-9a-f]+ V R U$')
+    runner.match(r'^      510: pte=0x[0-9a-f]+ va=0x0000003fffffe000 pa=0x[0-9a-f]+ V R W$')
+    runner.match(r'^      511: pte=0x[0-9a-f]+ va=0x0000003ffffff000 pa=0x[0-9a-f]+ V R X$')
+    runner.match('')
+
+# ======================================================================
+#  Test Cases
+# ======================================================================
+
+@test(14, "Print Page Table (with read only page)")
+def test_mp2_1():
+    runner.run_qemu(shell_script([
+        'mp2_1'
+    ]))
+    runner.match('ugetpid_test starting')
+    runner.match('ugetpid_test: OK')
+    # The entire page table structure is now checked by the helper function.
+    _match_baseline_pagetable(runner)
+
+@test(14, "sbrk test")
+def test_mp2_2():
+    runner.run_qemu(shell_script([
+        'mp2_2'
+    ]))
+    # Before faulting, the page table is in its baseline state.
+    runner.match(r'^# Before sbrk\(PGSIZE \* 2\)')
+    _match_baseline_pagetable(runner)
+    runner.match(r'^# After sbrk\(PGSIZE \* 2\)')
+    _match_baseline_pagetable(runner)
+    runner.match(r'^# After sbrk\(-PGSIZE \* 2\)')
+    _match_baseline_pagetable(runner)
+    runner.match(r'^# After sbrk\(PGSIZE \* 2\) again')
+    _match_baseline_pagetable(runner)
+
+    # After faulting, the page table has one extra page.
+    runner.match(r'^# After page fault at 0x0000000000005000')
+    _match_pagetable_with_faulted_page_5(runner)
+
+    # After deallocation, it returns to the baseline state.
+    runner.match(r'^# After sbrk\(-PGSIZE \* 2\) again')
+    _match_baseline_pagetable(runner)
+
+@test(14, "madvise test")
+def test_mp2_3():
+    runner.run_qemu(shell_script([
+        'mp2_3'
+    ]))
+    # --- Stage 1: Before madvise ---
+    runner.match(r'^# Before madvise\(\)')
+    # We need to construct the expected page table for the helper. This requires adding page 5.
+    initial_pagetable_with_page5 = _match_pagetable_with_faulted_page_5 # This is an alias for clarity.
+    initial_pagetable_with_page5(runner)
+
+
+    # --- Stage 2: After madvise ---
+    runner.match(r'^# After madvise\(\)')
+    after_regex = r'^      5: pte=0x[0-9a-f]+ va=0x0000000000005000 pa=0x[0-9a-f]+ blockno=0x[0-9a-f]+ R W X U S$'
+    _match_madvise_pagetable(runner, after_regex)
+
+# ======================================================================
+#  Run All Tests
+# ======================================================================
+
+run_tests()
