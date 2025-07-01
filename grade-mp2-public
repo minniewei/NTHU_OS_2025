@@ -46,7 +46,7 @@ def _match_pagetable_with_faulted_page_5(runner):
     runner.match(r'^      511: pte=0x[0-9a-f]+ va=0x0000003ffffff000 pa=0x[0-9a-f]+ V R X$')
     runner.match('')
 
-def _match_madvise_pagetable(runner, va_5000_line_regex):
+def _match_madvise_pagetable(runner):
     """Matches the page table, using a specific regex for the va=0x5000 entry."""
     runner.match(r'^page table 0x[0-9a-f]+')
     runner.match(r'^  0: pte=0x[0-9a-f]+ va=0x0000000000000000 pa=0x[0-9a-f]+ V$')
@@ -56,7 +56,7 @@ def _match_madvise_pagetable(runner, va_5000_line_regex):
     runner.match(r'^      2: pte=0x[0-9a-f]+ va=0x0000000000002000 pa=0x[0-9a-f]+ V R W$')
     runner.match(r'^      3: pte=0x[0-9a-f]+ va=0x0000000000003000 pa=0x[0-9a-f]+ V R W U$')
     # This is the line that changes, so we use the provided regex.
-    runner.match(va_5000_line_regex)
+    runner.match(r'^      5: pte=0x[0-9a-f]+ va=0x0000000000005000 pa=0x[0-9a-f]+ blockno=0x[0-9a-f]+ R W X U S$')
     runner.match(r'^  255: pte=0x[0-9a-f]+ va=0x0000003fc0000000 pa=0x[0-9a-f]+ V$')
     runner.match(r'^    511: pte=0x[0-9a-f]+ va=0x0000003fffe00000 pa=0x[0-9a-f]+ V$')
     runner.match(r'^      509: pte=0x[0-9a-f]+ va=0x0000003fffffd000 pa=0x[0-9a-f]+ V R U$')
@@ -115,8 +115,7 @@ def test_mp2_3():
 
     # --- Stage 2: After madvise ---
     runner.match(r'^# After madvise\(\)')
-    after_regex = r'^      5: pte=0x[0-9a-f]+ va=0x0000000000005000 pa=0x[0-9a-f]+ blockno=0x[0-9a-f]+ R W X U S$'
-    _match_madvise_pagetable(runner, after_regex)
+    _match_madvise_pagetable(runner)
 
 # ======================================================================
 #  Run All Tests
