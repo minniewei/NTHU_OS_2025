@@ -78,7 +78,7 @@ def test_mp2_1():
     # The entire page table structure is now checked by the helper function.
     _match_baseline_pagetable(runner)
 
-@test(14, "sbrk test")
+@test(14, "sbrk test", parent=test_mp2_1)
 def test_mp2_2():
     runner.run_qemu(shell_script([
         'mp2_2'
@@ -101,7 +101,7 @@ def test_mp2_2():
     runner.match(r'^# After sbrk\(-PGSIZE \* 2\) again')
     _match_baseline_pagetable(runner)
 
-@test(14, "madvise test")
+@test(14, "madvise test", parent=test_mp2_2)
 def test_mp2_3():
     runner.run_qemu(shell_script([
         'mp2_3'
