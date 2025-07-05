@@ -69,19 +69,19 @@ def _match_madvise_pagetable(runner):
 # ======================================================================
 
 @test(14, "Print Page Table (with read only page)")
-def test_mp2_1():
+def test_mp3_1():
     runner.run_qemu(shell_script([
-        'mp2_1'
+        'mp3_1'
     ]))
     runner.match('ugetpid_test starting')
     runner.match('ugetpid_test: OK')
     # The entire page table structure is now checked by the helper function.
     _match_baseline_pagetable(runner)
 
-@test(14, "sbrk test", parent=test_mp2_1)
-def test_mp2_2():
+@test(14, "sbrk test", parent=test_mp3_1)
+def test_mp3_2():
     runner.run_qemu(shell_script([
-        'mp2_2'
+        'mp3_2'
     ]))
     # Before faulting, the page table is in its baseline state.
     runner.match(r'^# Before sbrk\(PGSIZE \* 2\)')
@@ -101,10 +101,10 @@ def test_mp2_2():
     runner.match(r'^# After sbrk\(-PGSIZE \* 2\) again')
     _match_baseline_pagetable(runner)
 
-@test(14, "madvise test", parent=test_mp2_2)
-def test_mp2_3():
+@test(14, "madvise test", parent=test_mp3_2)
+def test_mp3_3():
     runner.run_qemu(shell_script([
-        'mp2_3'
+        'mp3_3'
     ]))
     # --- Stage 1: Before madvise ---
     runner.match(r'^# Before madvise\(\)')

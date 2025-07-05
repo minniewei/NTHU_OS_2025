@@ -1,4 +1,4 @@
-# MP2 - Page Table and Paging
+# MP3 - Page Table and Paging
 ## Introduction
 
 In this project, we will begin with a **Trace Code** section to help you understand the current paging and virtual memory mechanisms in xv6. Following that, in the **Implementation** section, you will first familiarize yourself with printing out page tables and then add a read-only page to further solidify your understanding. Subsequently, you will be required to implement new features to support lazy allocation and swapping in the xv6 system. We will provide several hints and list the files you may need to modify. However, you are free to develop your own implementation, provided it passes all test cases and you clearly document your solution.
@@ -30,7 +30,7 @@ In this part, you will implement code within the xv6 source code. You are expect
 > A single page table for a process with a large virtual address space would consume too much memory. To solve this, modern operating systems use **multi-level page tables**, which create a tree-like structure. Lower-level tables are allocated only when needed, saving significant memory.
 > 
 > 
-> RISC-V xv6 uses a three-level page table. In this section, you will implement vmprint() to traverse and display this page table tree for a given process. You can get the full test credit if you pass the test mp2_0.
+> RISC-V xv6 uses a three-level page table. In this section, you will implement vmprint() to traverse and display this page table tree for a given process. You can get the full test credit if you pass the test mp3_0.
 > 
 
 Files you may need to change:
@@ -40,7 +40,7 @@ Files you may need to change:
 Expected output:
 
 ```bash
-$ mp2_0
+$ mp3_0
 page table 0x0000000087f43000
  0: pte=0x0000000087f43000 va=0x0000000000000000 pa=0x0000000087f3f000 V
   0: pte=0x0000000087f3f000 va=0x0000000000000000 pa=0x0000000087f3e000 V
@@ -90,7 +90,7 @@ Files you may need to change:
 Expected output:
 
 ```bash
-$ mp2_1
+$ mp3_1
 ugetpid_test starting
 ugetpid_test: OK
 page table 0x0000000087f40000
@@ -139,7 +139,7 @@ Files you may need to change:
 Expected output:
 
 ```bash
-$ mp2_2
+$ mp3_2
 # Before sbrk(PGSIZE * 2)
 page table 0x0000000087f4e000
   0: pte=0x0000000087f4e000 va=0x0000000000000000 pa=0x0000000087f4a000 V
@@ -271,7 +271,7 @@ Files you may need to change:
 Expected output:
 
 ```bash
-$ mp2_3
+$ mp3_3
 # Before madvise()
 page table 0x0000000087f4e000
   0: pte=0x0000000087f4e000 va=0x0000000000000000 pa=0x0000000087f4a000 V
@@ -320,7 +320,7 @@ Design your own test cases to test your code. Describe your test cases in your r
     * Passing the remaining private testcases gets the rest (60% * 30% = 18%)
 2. Report (20%)
 	* The report must detail team member contributions, provide an explanation of the trace code, and offer a clear explanation of your implementation.
-	* Name the report “MP2_report_[GroupNumber].md”, and upload it to eeclass.
+	* Name the report “mp3_report_[GroupNumber].md”, and upload it to eeclass.
 3. Demo (20%)
 	* You will have a 15-minute session to answer TA questions regarding your implementation and specific details of the trace code.
 4. Bonus (5%)

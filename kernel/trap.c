@@ -46,7 +46,7 @@ void usertrap(void)
 
   // save user program counter.
   p->trapframe->epc = r_sepc();
-  // mp2 TODO
+  // mp3 TODO
   if (r_scause() == 8)
   {
     // system call

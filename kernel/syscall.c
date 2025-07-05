@@ -98,7 +98,7 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 
-/* Syscalls for MP2 */
+/* Syscalls for mp3 */
 extern uint64 sys_vmprint(void);
 extern uint64 sys_madvise(void);
 
@@ -139,7 +139,7 @@ static uint64 (*syscalls[])(void) = {
 #ifdef LAB_PGTBL
     [SYS_pgaccess] sys_pgaccess,
 #endif
-    /* Syscalls for MP2 */
+    /* Syscalls for mp3 */
     [SYS_vmprint] sys_vmprint,
     [SYS_madvise] sys_madvise,
 };

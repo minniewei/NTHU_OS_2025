@@ -105,7 +105,7 @@ int allocpid()
 // and return with p->lock held.
 // If there are no free procs, or a memory allocation fails, return 0.
 
-/* mp2 TODO */
+/* mp3 TODO */
 static struct proc *
 allocproc(void)
 {
@@ -158,7 +158,7 @@ found:
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
-/* mp2 TODO */
+/* mp3 TODO */
 static void
 freeproc(struct proc *p)
 {
@@ -180,7 +180,7 @@ freeproc(struct proc *p)
 
 // Create a user page table for a given process, with no user memory,
 // but with trampoline and trapframe pages.
-/* mp2 TODO */
+/* mp3 TODO */
 pagetable_t
 proc_pagetable(struct proc *p)
 {
@@ -217,7 +217,7 @@ proc_pagetable(struct proc *p)
 
 // Free a process's page table, and free the
 // physical memory it refers to.
-/* mp2 TODO */
+/* mp3 TODO */
 void proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);

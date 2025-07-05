@@ -171,7 +171,7 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 // Remove npages of mappings starting from va. va must be
 // page-aligned. The mappings must exist.
 // Optionally free the physical memory.
-// mp2 TODO
+// mp3 TODO
 void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
   uint64 a;
@@ -459,13 +459,13 @@ int copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 /* Print multi layer page table. */
 void vmprint(pagetable_t pagetable)
 {
-  /* mp2 TODO */
+  /* mp3 TODO */
   panic("not implemented yet\n");
 }
 
 /* Map pages to physical memory or swap space. */
 int madvise(uint64 base, uint64 len, int advice)
 {
-  /* mp2 TODO */
+  /* mp3 TODO */
   panic("not implemented yet\n");
 }

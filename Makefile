@@ -189,10 +189,10 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
-	$U/_mp2_0\
-	$U/_mp2_1\
-	$U/_mp2_2\
-	$U/_mp2_3\
+	$U/_mp3_0\
+	$U/_mp3_1\
+	$U/_mp3_2\
+	$U/_mp3_3\
 
 
 
