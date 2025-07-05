@@ -217,7 +217,7 @@ def post_make():
 
 def make(*target):
     pre_make()
-    if Popen(("make",) + target).wait():
+    if Popen(("make", "-j") + target).wait():
         sys.exit(1)
     post_make()
 

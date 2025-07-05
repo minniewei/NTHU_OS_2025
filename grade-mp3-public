@@ -117,6 +117,16 @@ def test_mp3_3():
     runner.match(r'^# After madvise\(\)')
     _match_madvise_pagetable(runner)
 
+@test(0, "report")
+def test_report():
+    # just a simple sanity check, will be graded manually
+    check_answers("mp3-report.md")
+
+
+@test(0, "bonus")
+def test_bonus():
+    # just a simple sanity check, will be graded manually
+    check_answers("grade-mp3-bonus")
 # ======================================================================
 #  Run All Tests
 # ======================================================================
