@@ -41,4 +41,15 @@ def test_sysinfotest():
     ]))
     r.match('^sysinfotest: OK', no=[".* FAIL .*"])
 
+@test(0, "report")
+def test_report():
+    # just a simple sanity check, will be graded manually
+    check_answers("mp1-report.md")
+
+
+@test(0, "bonus")
+def test_bonus():
+    # just a simple sanity check, will be graded manually
+    check_answers("grade-mp1-bonus")
+
 run_tests()
