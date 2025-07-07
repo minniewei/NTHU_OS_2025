@@ -304,6 +304,11 @@ create(char *path, short type, short major, short minor)
 uint64
 sys_open(void)
 {
+  // TODO: Symbolic links to Files
+  // open() should handle symbolic link
+  // If the file is a symbolic link, and O_NOFOLLOW is not specified,
+  // then you should read the path in the symbolic link,
+  // and return the corresponding file.
   char path[MAXPATH];
   int fd, omode;
   struct file *f;
@@ -409,6 +414,10 @@ sys_mknod(void)
 uint64
 sys_chdir(void)
 {
+  // TODO: Symbolic Link to Directories
+  // You can modify this to cd into a symbolic link
+  // The modification may not be necessary,
+  // depending on you implementation.
   char path[MAXPATH];
   struct inode *ip;
   struct proc *p = myproc();
@@ -428,6 +437,24 @@ sys_chdir(void)
   iput(p->cwd);
   end_op();
   p->cwd = ip;
+  return 0;
+}
+
+uint64
+sys_symlink(void)
+{
+  // TODO: symbolic link
+  // You should implement this symlink system call.
+  // char target[MAXPATH], path[MAXPATH];
+  // int fd;
+  // struct file *f;
+  // struct inode *ip;
+
+  // if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+  //   return -1;
+  
+  panic("You should implement symlink system call.");
+
   return 0;
 }
 

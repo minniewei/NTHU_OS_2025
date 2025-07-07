@@ -24,6 +24,8 @@ struct superblock {
 
 #define FSMAGIC 0x10203040
 
+// TODO: bigfile
+// You may need to modify these.
 #define NDIRECT 12
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define MAXFILE (NDIRECT + NINDIRECT)

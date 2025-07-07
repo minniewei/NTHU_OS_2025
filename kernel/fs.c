@@ -382,6 +382,9 @@ iunlockput(struct inode *ip)
 static uint
 bmap(struct inode *ip, uint bn)
 {
+  // TODO: Large Files
+  // You should modify bmap(),
+  // so that it can handle doubly indrect inode.
   uint addr, *a;
   struct buf *bp;
 
@@ -425,6 +428,9 @@ bmap(struct inode *ip, uint bn)
 void
 itrunc(struct inode *ip)
 {
+  // TODO: Large Files
+  // You should modify itruc(),
+  // so that it can handle doubly indrect inode.
   int i, j;
   struct buf *bp;
   uint *a;
@@ -651,6 +657,8 @@ skipelem(char *path, char *name)
 static struct inode*
 namex(char *path, int nameiparent, char *name)
 {
+  // TODO: Symbolic Link to Directories
+  // Modify this function to deal with symbolic links to directories.
   struct inode *ip, *next;
 
   if(*path == '/')
