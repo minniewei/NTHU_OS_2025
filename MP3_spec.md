@@ -25,6 +25,7 @@ Refer to link [student guide](https://github.com/NTHU-LSALAB/xv6-Template/tree/s
 
 ## Implementation
 In this part, you will implement code within the xv6 source code. You are expected to write your code, test its functionality, and document your work in the report file. You may design your own solution, provided its architecture is reasonable.
+Hint: **See the Appendix for more information to compelete this assignment**
 ### **1.** Print Page Table
 
 > A single page table for a process with a large virtual address space would consume too much memory. To solve this, modern operating systems use **multi-level page tables**, which create a tree-like structure. Lower-level tables are allocated only when needed, saving significant memory.
