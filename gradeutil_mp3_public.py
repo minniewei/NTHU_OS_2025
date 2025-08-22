@@ -185,7 +185,7 @@ def _match_baseline_pagetable(runner):
     runner.match("")  # Match trailing blank line
 
 
-def _match_pagetable_with_faulted_page_5(runner):
+def _match_pagetable_with_faulted_page(runner):
     """Matches the page table state after a page fault at va=0x5000."""
     runner.match(r"^page table 0x[0-9a-f]+")
 

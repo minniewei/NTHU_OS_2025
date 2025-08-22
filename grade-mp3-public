@@ -4,7 +4,7 @@ import re
 from gradelib import *
 from gradeutil_mp3_public import (
     _match_baseline_pagetable,
-    _match_pagetable_with_faulted_page_5,
+    _match_pagetable_with_faulted_page,
     _match_madvise_pagetable,
 )
 
@@ -19,7 +19,6 @@ def test_mp3_1():
     runner.run_qemu(shell_script(["mp3_1"]))
     runner.match("ugetpid_test starting")
     runner.match("ugetpid_test: OK")
-    # The entire page table structure is now checked by the helper function.
     _match_baseline_pagetable(runner)
 
 
@@ -38,7 +37,7 @@ def test_mp3_2():
 
     # After faulting, the page table has one extra page.
     runner.match(r"^# After page fault at 0x0000000000005000")
-    _match_pagetable_with_faulted_page_5(runner)
+    _match_pagetable_with_faulted_page(runner)
 
     # After deallocation, it returns to the baseline state.
     runner.match(r"^# After sbrk\(-PGSIZE \* 2\) again")
@@ -50,11 +49,7 @@ def test_mp3_3():
     runner.run_qemu(shell_script(["mp3_3"]))
     # --- Stage 1: Before madvise ---
     runner.match(r"^# Before madvise\(\)")
-    # We need to construct the expected page table for the helper. This requires adding page 5.
-    initial_pagetable_with_page5 = (
-        _match_pagetable_with_faulted_page_5  # This is an alias for clarity.
-    )
-    initial_pagetable_with_page5(runner)
+    _match_pagetable_with_faulted_page(runner)
 
     # --- Stage 2: After madvise ---
     runner.match(r"^# After madvise\(\)")
