@@ -33,7 +33,7 @@ Hint: **See the Appendix for more information to compelete this assignment**
 > 
 > RISC-V xv6 uses a three-level page table. In this section, you will implement vmprint() to traverse and display this page table tree for a given process. You can get the full test credit if you pass the test mp3_0. 
 
-> ![image](addr_layout.png)
+> ![image](https://github.com/NTHU-LSALAB/xv6-Template/blob/os25-mp3-template/addr_layout.png?raw=true)
 > **Reference the above diagram for the following calculations:**
 > *   **PTE (Page Table Entry):** Combine the **PPN** and **Flags**.
 > *   **Virtual Address (VA):** Combine the **L2, L1, and L0** indices.
