@@ -99,7 +99,7 @@ int sysinfo(struct sysinfo *);
 	* Private testcases (18%)
 2. Report (20%)
 	* The report must detail team member contributions, provide an explanation of the trace code, and offer a clear explanation of your implementation.
-	* Name the report `mp1-report.md`, and upload it to eeclass.
+	* Name the report `mp1-report.md`, and upload it to repo.
 3. Demo (20%)
 	* You will have a 15-minute session to answer TA questions regarding your implementation and specific details of the trace code.
 4. Bonus (5%)
