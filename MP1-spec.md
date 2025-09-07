@@ -5,7 +5,7 @@
 	1. **trace**: A practical debugging utility that will trace and print the system calls executed by a specific program, allowing you to visualize the interactions between an application and the kernel.
 	2. **sysinfo**: An informational tool that will collect and report on the current state of the system, including available memory and the number of running processes.
 ### Instructions
-Refer to link [student guide](https://github.com/NTHU-LSALAB/xv6-Template/tree/student) to launch the development environment.
+Refer to link [student guide](https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6/src/branch/student/) to launch the development environment.
 ## Trace Code
 * Explain how does a user program trigger system call (take `read` for example)
 * You can refer to Chapter 2 and Sections 4.3 and 4.4 of Chapter 4 of [xv6 handbook](https://pdos.csail.mit.edu/6.828/2023/xv6/book-riscv-rev3.pdf#page=54.62).
@@ -103,7 +103,7 @@ int sysinfo(struct sysinfo *);
 3. Demo (20%)
 	* You will have a 15-minute session to answer TA questions regarding your implementation and specific details of the trace code.
 4. Bonus (5%)
-	* Refer to section "Rule for bonus" in [student guide](https://github.com/NTHU-LSALAB/xv6-Template/tree/student)
+	* Refer to section "Rule for bonus" in [student guide](https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6/src/branch/student/)
 	* Write the bonus testcase script in `grade-mp1-bonus`.
 5. Plagiarism check
     * Never show your code to others.
