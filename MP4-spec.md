@@ -6,13 +6,13 @@
 
 ### Instructions
 
-- Refer to link [student guide](https://github.com/NTHU-LSALAB/xv6-Template/tree/student) to launch the development environment.
+- Refer to link [student guide](https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6/src/branch/student/) to launch the development environment.
 
 ## Part 1: Large Files
 
 ### Description:
 
-In this part, you are required to extend the xv6 file system to support large files by increasing the maximum number of data blocks that a file can use. The core idea is to implement **doubly-indirect blocks**. Each doubly-indirect block will contain 256 pointers to singly-indirect blocks, and each singly-indirect block will contain 256 pointers to data blocks. By replacing one direct block pointer with a doubly-indirect block pointer, you can significantly increase the file capacity. However, to reach our target of **up to 66666 data blocks**, you will need to incorporate extra doubly-indirect blocks in your design.
+In this part, you are required to extend the xv6 file system to support large files by increasing the maximum number of data blocks that a file can use. The core idea is to implement **doubly-indirect blocks**. Each doubly-indirect block will contain 256 pointers to singly-indirect blocks, and each singly-indirect block will contain 256 pointers to data blocks. Pleace replace one direct block with a doubly-indirect block to increase the file capacity. However, to reach our target of **up to 66666 data blocks**, you will need to incorporate extra doubly-indirect blocks in your design.
 
 ### Trace Code:
 
@@ -51,7 +51,8 @@ addrs. Note that the length of addrs is always 13.
 
 ### Description
 
-In this problem you will add symbolic links to xv6. Symbolic links (or soft links) refer to a linked file by pathname; when a symbolic link is opened, the kernel follows the link to the referred file. Implementing this system call is a good exercise to understand how pathname lookup works. You will implement the `symlink(char *target, char *path)` system call, which creates a new symbolic link at path that refers to a file named target. In addition, you also need to handle `open` when encountering symbolic links. If the target is also a symbolic link, you must recursively follow it until a non-link file is reached. If the links form a cycle, you must return an error code. You may approximate this by returning an error code if the depth of links reaches some threshold (e.g., 10). However, when a process specifies `O_NOFOLLOW` flags, open should open symbolic links (not targets).
+In this problem you will add symbolic links to xv6. Symbolic links (or soft links) refer to a linked file by pathname; when a symbolic link is opened, the kernel follows the link to the referred file. Implementing this system call is a good exercise to understand how pathname lookup works. You will implement the `symlink(char *target, char *path)` system call, which creates a new symbolic link at path that refers to a file named target. In addition, you also need to handle `open` when encountering symbolic links. If the target is also a symbolic link, you must recursively follow it until a non-link file is reached. If the links form a cycle, you must return an error code. You may approximate this by returning an error code `-3` if the depth of links reaches threshold 5. 
+There's a new flag `O_NOFOLLOW` in open mode. When it's specified, `open()` should not follow the symbolic link. If the target is a symbolic link, `return -2`.
 
 ## Guidelines and Hints
 
@@ -65,7 +66,8 @@ symlink is already added in xv6, so you don’t need to worry about that.
 7. Modify the open system call to handle paths with symbolic links. If the file does not exist, open must fail.
 8. Don’t worry about other system calls (e.g., link and unlink). They must not follow symbolic links; these system calls operate on the symbolic link itself.
 9. You do not have to handle symbolic links to directories in this part.
-10. You can pass problem 2 with modifying only: `sysfile.c`.
+10. Consider only `absolute path`, you don't need to handle relative path.
+11. You can pass problem 2 with modifying only: `sysfile.c`.
 
 ## Part 3:  Symbolic Links to Directories
 
@@ -78,6 +80,8 @@ Instead of just implementing symbolic links to files, now you should also consid
 For example, symlink("/y/", "/x/a") creates a symbolic link /x/a links to /y/. The actual path of
 /x/a/b should be /y/b. Thus, if you write to /x/a/b, you actually write to /y/b. Also, if you cd into /x/a, your working directory should become /y/.
 
+Note: Cycle detection is required when resolving symbolic link paths. For implementation simplicity in this part, please return a standard error code of -1 upon detecting a cycle(depth threshold 5).
+
 ## Guidelines and Hints
 
 1. Checkout `TODO` in the skeleton code.
@@ -85,12 +89,14 @@ For example, symlink("/y/", "/x/a") creates a symbolic link /x/a links to /y/. T
 3. You have to handle paths that consist of symbolic links. Check `namex` function in fs.c.
 4. You have to handle symbolic links in `sys_chdir` function. Like problem 2, you need to avoid infinite
 loops.
-5. You can pass problem 3 with modifying only: `sysfile.c` and `fs.c`.
+5. Consider only `absolute path`, you don't need to handle relative path.
+6. You can pass problem 3 with modifying only: `sysfile.c` and `fs.c`.
 
 ## Grading
 
 1. Implementation correctness (60%)
     - Passing all public testcases gets (60% * 70% = 42%)
+    - you can execute ./grade-mp4-public to test your code.
     - Passing the remaining private testcases gets the rest (60% * 30% = 18%)
     - Each part accounts for 20%.
 2. Report (20%)
@@ -101,7 +107,7 @@ loops.
 3. Demo (20%)
     - Answer questions from TAs in 20 minutes.
 4. Bonus (5%)
-   - Refer to section "Rule for bonus" in [student guide](https://github.com/NTHU-LSALAB/xv6-Template/tree/student)
+   - Refer to section "Rule for bonus" in [student guide](https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6/src/branch/student/)
 5. Plagiarism check
    - Never show your code to others.
    - If your code is found to be similar to others, including sources from the internet, and you cannot answer questions properly about your code during the demo, you will be considered as plagiarizing and will receive a score of 0 for the assignment.
