@@ -37,6 +37,8 @@ The user deletes the large file using the rm utility.
 2. How many blocks increase when replacing a direct block with a doubly-indirect block?
 3. The `bmap` and `itrunc` functions make use of the buffer cache via `bread`, `brelse`, and `log_write`. Explain the above function .
 4. Explain the importance of calling `brelse` after you are done with a buffer from `bread`. 
+5. To ensure crash safety, xv6 uses a write-ahead log. Trace the lifecycle of a file system transaction, for example when creating a new file via `create()` in `kernel/fs.c`. Explain the roles of `begin_op()`, `log_write()`, and `end_op()` from `kernel/log.c`. Describe what gets written to the on-disk log and what constitutes a "commit". Finally, explain how the recovery code (`recover_from_log`) uses the log to ensure the operation is atomic after a crash. We strongly encourage you to read the logging part(8.4) in xv6 handbook to get familiar with loggin mechanism.
+6. Explain the roles of the in-memory inode functions `iget()` and `iput()`. Describe the purpose of the reference count (`ref`) in `struct inode`.
 
 ## Guidelines and Hints
 
