@@ -20,4 +20,5 @@
 #define SYS_link 19
 #define SYS_mkdir 20
 #define SYS_close 21
-#define SYS_trace 22 // (HW1-1) add trace syscall number
+#define SYS_trace 22   // (HW1-1) add trace syscall number
+#define SYS_sysinfo 23 // (HW1-2) add sysinfo syscall number

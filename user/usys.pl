@@ -37,3 +37,5 @@ entry("sbrk");
 entry("sleep");
 entry("uptime");
 entry("trace");  # (HW1-1) add trace syscall stub
+entry("sysinfo");
+
