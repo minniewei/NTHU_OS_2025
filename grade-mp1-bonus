@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+
+import re
+from gradelib import *
+
+r = Runner(save("xv6.out"))
+
+@test(1.25, "trace 0 grep")
+def test_trace_0_grep():
+    r.run_qemu(shell_script([
+        'trace 0 grep hello README'
+    ]))
+    # no system call should be traced
+    r.match(no=[".* syscall .*"])
+
+@test(1.25, "trace 32 trace grep (bad args)")
+def test_trace_32_trace_grep():
+    r.run_qemu(shell_script([
+        'trace 32 trace grep hello README'
+    ]))
+    # should print usage message
+    r.match('^Usage: trace mask command')
+    # no system call should be traced
+    r.match(no=[".* syscall .*"])
+
+@test(1.25, "trace 32 trace grep (good args)")
+def test_trace_32_trace_grep():
+    r.run_qemu(shell_script([
+        'trace 32 trace 32 grep hello README'
+    ]))
+    r.match('^\\d+: syscall read -> 1023')
+    r.match('^\\d+: syscall read -> 961')
+    r.match('^\\d+: syscall read -> 321')
+    r.match('^\\d+: syscall read -> 0')
+
+@test(1.25, " trace 4194304 trace grep")
+def test_trace_4194304_trace_grep():
+    r.run_qemu(shell_script([
+        'trace 4194304 trace 32 grep hello README'
+    ]))
+    r.match('^\\d+: syscall trace -> 0')
+    r.match('^\\d+: syscall read -> 1023')
+    r.match('^\\d+: syscall read -> 961')
+    r.match('^\\d+: syscall read -> 321')
+    r.match('^\\d+: syscall read -> 0')
+
+run_tests()
