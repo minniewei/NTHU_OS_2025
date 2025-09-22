@@ -5,6 +5,8 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"   // 檔名在 xv6-riscv 通常是 kernel/sysinfo.h
+
 
 uint64
 sys_exit(void)
@@ -90,4 +92,23 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_sysinfo(void)
+{
+  uint64 uaddr;
+  struct sysinfo si;
+
+  // 這版 argaddr 不回傳值，直接把參數取出
+  argaddr(0, &uaddr);
+
+  si.freemem = getfreemem();
+  si.nproc   = getnproc();
+
+  // 只有 copyout 會回報錯誤
+  if (copyout(myproc()->pagetable, uaddr, (char*)&si, sizeof(si)) < 0)
+    return -1;
+
+  return 0;
 }
