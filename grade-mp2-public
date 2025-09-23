@@ -377,7 +377,7 @@ def test_preempt_c():
 @test(0, "report")
 def test_report():
     # just a simple sanity check, will be graded manually
-    check_answers("mp2-report")
+    check_answers("mp2-report.md")
 
 
 @test(0, "bonus")

@@ -118,7 +118,7 @@ Aging:
    - Section including team members, team member contribution.
    - Section answering the questions/explanation of the trace code section.
    - Section explaining your implementation.
-   - Write the report in `mp2-report.md`.
+   - Name the report `mp2-report.md`, and push to the repo.
 3. Demo (20%)
    - You will have a 20-minute session answering TA questions regarding your implementation and specific details of the trace code.
 4. Bonus (5%)
