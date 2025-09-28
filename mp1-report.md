@@ -134,8 +134,99 @@ sys_trace(void)
 }
 ```
 ### System Call Sysinfo
+#### 在 Makefile 當中新增來源
+```
+$U/_sysinfotest
+```
+#### 在user/user.h 宣告 sysinfo()，並且先告訴它等等會有一個叫 struct sysinfo 的結構
+```
+struct sysinfo;                 
+int sysinfo(struct sysinfo *);  
+```
+#### 自動生出「從 user 程式呼叫 sysinfo() → 跑到 kernel 裡」的橋樑程式碼
+```
+entry("sysinfo");
+
+```
+#### 幫 sysinfo 分配一個新的號碼，好讓 kernel 分得清楚誰是誰
+```
+#define SYS_sysinfo  23  
+```
+#### 把之後要寫的功能（像 getfreemem()、getnproc()、sys_sysinfo()）先宣告出來，這樣其他檔案在呼叫時才知道有這些函式
+```
+// kalloc.c
+uint64 getfreemem(void);
+
+// proc.c
+int    getnproc(void);
+
+// sysproc.c
+uint64 sys_sysinfo(void);
+```
+#### 在 kernel 裡真正寫出 sys_sysinfo() 的內容，負責把「剩餘記憶體大小」和「目前行程數」塞進一個結構，再把它丟回給 user
+```
+#include "sysinfo.h"   // 檔名在 xv6-riscv 通常是 kernel/sysinfo.h
+
+uint64
+sys_sysinfo(void)
+{
+  uint64 uaddr;
+  struct sysinfo si;
+
+  // 直接把參數取出
+  argaddr(0, &uaddr);
+
+  si.freemem = getfreemem();
+  si.nproc   = getnproc();
+
+  // 只有 copyout 會回報錯誤
+  if (copyout(myproc()->pagetable, uaddr, (char*)&si, sizeof(si)) < 0)
+    return -1;
+
+  return 0;
+}
+```
+#### 數現在還剩下多少記憶體沒用到，用走訪 freelist 的方式算出來並回傳
+```
+uint64
+getfreemem(void)
+{
+  uint64 bytes = 0;
+  acquire(&kmem.lock);
+  for (struct run *r = kmem.freelist; r; r = r->next) {
+    bytes += PGSIZE;
+  }
+  release(&kmem.lock);
+  return bytes;
+}
+```
+#### 數現在有多少個行程不是空的，例如正在跑的、睡眠的、殭屍的都算，只有 UNUSED 不算
+```
+int
+getnproc(void)
+{
+  int n = 0;
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED)
+      n++;
+    release(&p->lock);
+  }
+  return n;
+}
+```
+#### 把 sysinfo 的編號跟處理它的函式連起來，這樣當 user 呼叫 sysinfo()，kernel 才知道要去執行 sys_sysinfo()
+```
+extern uint64 sys_sysinfo(void);
+
+[SYS_sysinfo] sys_sysinfo,
+
+```
 ## Experiment
 ### 執行 ./grade-mp1-public
+![image](https://hackmd.io/_uploads/rkxe278hxx.png)
 ### 執行 ./grade-mp1-bonus
 ```
 #!/usr/bin/env python3
@@ -204,4 +295,7 @@ run_tests()
 ![image](https://hackmd.io/_uploads/rkkeRp42lg.png)
 
 
-## Reference
+## Member Contributions
+#### system call 1 trace: 楊薇蓉 
+#### system call 2 sysinfo: 朗文伶
+#### bonus: 楊薇蓉、朗文伶
