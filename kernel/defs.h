@@ -135,8 +135,11 @@ void pushbackproclist(struct proclist *pl, struct proclistnode *pn);
 void initsortedproclist(struct sortedproclist *spl,
                         int (*cmp)(struct proc *, struct proc *));
 int sizesortedproclist(struct sortedproclist *spl);
+struct proclistnode *findsortedproclist(struct sortedproclist *spl,
+                                        struct proc *p);
 struct proclistnode *popsortedproclist(struct sortedproclist *spl);
 void pushsortedproclist(struct sortedproclist *spl, struct proclistnode *pn);
+void removesortedproclist(struct sortedproclist *spl, struct proclistnode *pn);
 int cmptopsortedproclist(struct sortedproclist *spl, struct proc *p);
 // channel
 struct channel *allocchannel(void *chan);

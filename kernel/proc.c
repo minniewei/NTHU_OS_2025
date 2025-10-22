@@ -394,7 +394,7 @@ int priorfork(int priority, int statelogenabled) {
   release(&wait_lock);
 
   acquire(&np->lock);
-  procstatelog(np); // Initial state log
+  procstatelog(np);
   np->state = RUNNABLE;
   procstatelog(np);
   pushreadylist(np);
@@ -540,8 +540,6 @@ void scheduler(void) {
     procstatelog(p);
     swtch(&c->context, &p->context);
 
-    p->T += (int)(ticks - p->startrunningticks);
-
     // Process is done running for now.
     // It should have changed its p->state before coming back.
     c->proc = 0;
@@ -588,6 +586,7 @@ void yield(void) {
 
 // Aging
 void aging(void) {
+  int newlevel, oldlevel;
   // Call once every tick
   for (struct proc *p = proc; p < &proc[NPROC]; p++) {
     if (p->state != RUNNABLE)
@@ -601,23 +600,28 @@ void aging(void) {
     if (p->priority < 149) {
       // enhance priority
       p->priority++;
+    }
 
-      // move to new queue if needed
+    oldlevel = p->queue_level;
+    newlevel = prio_to_queue(p->priority);
+    if (newlevel == oldlevel)
+      continue;
+    else {
+      p->queue_level = newlevel;
       struct proclistnode *pn = 0;
-      switch (p->queue_level) {
+      switch (oldlevel) {
       case 1:
-        pn = findproclist((struct proclist *)&l1_ready,
-                          p); // sorted 也共用 node 結構
+        pn = findsortedproclist(&l1_ready, p);
         if (!pn)
           break;
-        removeproclist((struct proclist *)&l1_ready, pn);
+        removesortedproclist(&l1_ready, pn);
         freeproclistnode(pn);
         break;
       case 2:
-        pn = findproclist((struct proclist *)&l2_ready, p);
+        pn = findsortedproclist(&l2_ready, p);
         if (!pn)
           break;
-        removeproclist((struct proclist *)&l2_ready, pn);
+        removesortedproclist(&l2_ready, pn);
         freeproclistnode(pn);
         break;
       case 3:
@@ -628,7 +632,6 @@ void aging(void) {
         freeproclistnode(pn);
         break;
       }
-      // decide new
       pushreadylist(p);
     }
   }
@@ -640,14 +643,19 @@ void implicityield(void) {
   if (!p)
     return;
 
+  // Update T for L1 processes (accumulate running time)
+  if (p->queue_level == 1 && p->state == RUNNING) {
+    p->T += 1;
+  }
+
   // Handle cross-queue preemption
   // If there is an L1 task and the current process is not L1, yield the CPU
   if (sizesortedproclist(&l1_ready) > 0 && p->queue_level != 1) {
     yield();
     return;
   }
-  // If there is no L1 task and there is an L2 task, and the current process is
-  // L3, yield the CPU
+  // If there is no L1 task and there is an L2 task, and the current process
+  // is L3, yield the CPU
   if (sizesortedproclist(&l1_ready) == 0 && sizesortedproclist(&l2_ready) > 0 &&
       p->queue_level == 3) {
     yield();
@@ -661,6 +669,9 @@ void implicityield(void) {
       return;
     }
   }
+  // L2 Queue: Non-preemptive Priority Scheduling
+  // L2 processes do not preempt each other
+  // Only L1 processes can preempt L2 processes
   // L3 Round-Robin: time quantum = 10 ticks
   if (p->queue_level == 3) {
     if (ticks - p->startrunningticks >= 10) {
@@ -710,13 +721,18 @@ void sleep(void *chan, struct spinlock *lk) {
   }
   release(lk);
 
-  //(hw2) update Ti and T
-  p->Ti += ticks - p->startrunningticks;
-  if (p->Ti == 0)
-    p->Ti = p->T;
-  else
-    p->T = (p->T + p->Ti) / 2;
-  p->T = 0;
+  //(hw2) update Ti and T when process blocks
+  int actual_runtime = ticks - p->startrunningticks;
+  p->T += actual_runtime; // Accumulate total runtime for this burst
+
+  // Update estimated burst time: Ti = floor((T + Ti_prev) / 2)
+  if (p->Ti == 0) {
+    p->Ti = p->T; // First burst: estimate = actual
+  } else {
+    p->Ti = (p->T + p->Ti) / 2; // Update estimate
+  }
+
+  p->T = 0; // Reset T for next burst
 
   // Go to sleep.
   p->chan = chan;
@@ -982,6 +998,21 @@ int sizeproclist(struct proclist *pl) {
   return size;
 }
 
+// find a proclistnode in a sortedproclist.
+struct proclistnode *findsortedproclist(struct sortedproclist *spl,
+                                        struct proc *p) {
+  struct proclistnode *tmp, *pn;
+  acquire(&spl->lock);
+  pn = 0;
+  for (tmp = spl->head->next; tmp != spl->tail && pn == 0; tmp = tmp->next) {
+    if (tmp->p == p) {
+      pn = tmp;
+    }
+  }
+  release(&spl->lock);
+  return pn;
+}
+
 // find a proclistnode in a proclist.
 struct proclistnode *findproclist(struct proclist *pl, struct proc *p) {
   struct proclistnode *tmp, *pn;
@@ -1003,6 +1034,15 @@ void removeproclist(struct proclist *pl, struct proclistnode *pn) {
   pn->prev->next = pn->next;
   pn->next->prev = pn->prev;
   release(&pl->lock);
+}
+
+// remove a proclistnode from a sortedproclist.
+void removesortedproclist(struct sortedproclist *spl, struct proclistnode *pn) {
+  acquire(&spl->lock);
+  spl->size--;
+  pn->prev->next = pn->next;
+  pn->next->prev = pn->prev;
+  release(&spl->lock);
 }
 
 // pop and return the first element of a proclist, or 0 if the proclist is
@@ -1033,7 +1073,8 @@ void pushfrontproclist(struct proclist *pl, struct proclistnode *pn) {
   release(&pl->lock);
 }
 
-// pop and return the last element of a proclist, or 0 if the proclist is empty.
+// pop and return the last element of a proclist, or 0 if the proclist is
+// empty.
 struct proclistnode *popbackproclist(struct proclist *pl) {
   struct proclistnode *pn;
   acquire(&pl->lock);
