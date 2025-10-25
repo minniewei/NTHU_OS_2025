@@ -133,16 +133,7 @@ void simulate_work(int iterations) {
   for (i = 0; i < iterations; i++) {
     for (j = 0; j < 1000; j++) {
       result += (i * j) / (j + 1) + (i % (j + 1));
-
-      // Check for interruption every 100 iterations
-      if (j % 100 == 0) {
-        // This should allow timer interrupts to be processed
-        // but continue execution
-      }
     }
-    // fprintf(1, "[pid=%d] iteration %d done\n", pid, i);
   }
-
-  // fprintf(1, "[pid=%d] simulate_work finished\n", pid);
   (void)result;
 }
