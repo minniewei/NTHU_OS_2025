@@ -4,7 +4,7 @@
 In this project, we will begin with a **Trace Code** section to help you understand the current paging and virtual memory mechanisms in xv6. Following that, in the **Implementation** section, you will first familiarize yourself with printing out page tables and then add a read-only page to further solidify your understanding. Subsequently, you will be required to implement new features to support lazy allocation and swapping in the xv6 system. We will provide several hints and list the files you may need to modify. However, you are free to develop your own implementation, provided it passes all test cases and you clearly document your solution.
 
 ### Instructions
-Refer to link [student guide](https://github.com/NTHU-LSALAB/xv6-Template/tree/student) to launch the development environment.
+Refer to link [student guide](https://git.lsalab.cs.nthu.edu.tw/os25/os25_shared_xv6/src/branch/student/) to launch the development environment.
 
 ## Trace Code
 
