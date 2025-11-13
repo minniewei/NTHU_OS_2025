@@ -456,11 +456,66 @@ int copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   }
 }
 
+/* Helper function to print the flags of a PTE */
+static void vmprint_flags(pte_t pte)
+{
+  printf(" V");
+  if (pte & PTE_R)
+    printf(" R");
+  if (pte & PTE_W)
+    printf(" W");
+  if (pte & PTE_X)
+    printf(" X");
+  if (pte & PTE_U)
+    printf(" U");
+}
+
+/* Construct a virtual address by combining va_prefix with the index i at the specified level. */
+static inline uint64 va_with_index(uint64 va_prefix, int level, int i)
+{
+  int shift = PGSHIFT + 9 * level;
+  uint64 keep_high = ~((1ULL << (shift + 9)) - 1);
+  return (va_prefix & keep_high) | ((uint64)i << shift);
+}
+
+/* Recursive helper function to print the page table entries. */
+static void vmprint_walk(pagetable_t pt, int level, uint64 va_prefix)
+{
+  if (level < 0)
+    return;
+
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pt[i];
+    if ((pte & PTE_V) == 0)
+      continue;
+
+    // A valid PTE may either map to a physical page (leaf) or point to a lower-level page table (non-leaf), depending on whether the R/W/X bits are set.
+    uint64 va_nofs = va_with_index(va_prefix, level, i);
+    uint64 pa_nofs = PTE2PA(pte);
+
+    // Indentation: print 2 * (3 - level) spaces
+    for (int s = 0; s < 2 * (3 - level); s++)
+      printf(" ");
+
+    // Print according to the specified format
+    printf("%d: pte=0x%p va=0x%p pa=0x%p", i, pte, va_nofs, pa_nofs);
+    vmprint_flags(pte);
+    printf("\n");
+
+    // Recursive call for non-leaf PTEs
+    if ((pte & (PTE_R | PTE_W | PTE_X)) == 0)
+    {
+      vmprint_walk((pagetable_t)pa_nofs, level - 1, va_nofs);
+    }
+  }
+}
+
 /* Print multi layer page table. */
 void vmprint(pagetable_t pagetable)
 {
-  /* mp3 TODO */
-  panic("not implemented yet\n");
+  printf("page table 0x%p\n", pagetable);
+  vmprint_walk(pagetable, 2, 0);
 }
 
 /* Map pages to physical memory or swap space. */
