@@ -116,5 +116,7 @@ struct proc
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  /* mp3 TODO */
+
+  // mp3 variables:
+  struct usyscall *usyscall;
 };

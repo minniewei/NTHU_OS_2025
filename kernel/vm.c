@@ -499,7 +499,7 @@ static void vmprint_walk(pagetable_t pt, int level, uint64 va_prefix)
       printf(" ");
 
     // Print according to the specified format
-    printf("%d: pte=0x%p va=0x%p pa=0x%p", i, pte, va_nofs, pa_nofs);
+    printf("%d: pte=%p va=%p pa=%p", i, (void *)pte, (void *)va_nofs, (void *)pa_nofs);
     vmprint_flags(pte);
     printf("\n");
 
