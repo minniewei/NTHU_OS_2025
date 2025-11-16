@@ -35,18 +35,45 @@ sys_wait(void)
   return wait(p);
 }
 
-// mp3 TODO
 uint64
 sys_sbrk(void)
 {
-  uint64 addr;
   int n;
+  struct proc *p = myproc();
+  uint64 oldsz = p->sz;
 
   argint(0, &n);
-  addr = myproc()->sz;
-  if (growproc(n) < 0)
-    return -1;
-  return addr;
+
+  // n > 0 : just increase heap size
+  if (n > 0)
+  {
+    uint64 newsz = oldsz + n;
+    // Check for overflow or excessively large size if needed
+    p->sz = newsz;
+    return oldsz;
+  }
+  // n == 0 : just return current size
+  if (n == 0)
+  {
+    return oldsz;
+  }
+  // n < 0 : decrease heap size
+  if (n < 0)
+  {
+    uint64 newsz = oldsz + n;
+    if (newsz > oldsz) // overflow check
+      return -1;
+    if (newsz < 0)
+      return -1;
+
+    // Actually deallocate pages here; only existing pages will be freed
+    newsz = uvmdealloc(p->pagetable, oldsz, newsz);
+    p->sz = newsz;
+    return oldsz;
+  }
+
+  // Should not reach here
+  return -1;
 }
 
 uint64

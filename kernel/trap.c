@@ -47,7 +47,9 @@ void usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   // mp3 TODO
-  if (r_scause() == 8)
+
+  uint64 scause = r_scause();
+  if (scause == 8)
   {
     // system call
 
@@ -63,6 +65,16 @@ void usertrap(void)
     intr_on();
 
     syscall();
+  }
+  // 13 = load page fault, 15 = store page fault
+  else if ((scause == 13 || scause == 15))
+  {
+    uint64 va = r_stval();
+    if (handle_pgfault(p->pagetable, va) < 0)
+    {
+      // If the operation fails, treat it as an illegal access and kill the process.
+      p->killed = 1;
+    }
   }
   else if ((which_dev = devintr()) != 0)
   {

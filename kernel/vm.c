@@ -171,7 +171,6 @@ int mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 // Remove npages of mappings starting from va. va must be
 // page-aligned. The mappings must exist.
 // Optionally free the physical memory.
-// mp3 TODO
 void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 {
   uint64 a;
@@ -182,12 +181,29 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 
   for (a = va; a < va + npages * PGSIZE; a += PGSIZE)
   {
-    if ((pte = walk(pagetable, a, 0)) == 0)
-      panic("uvmunmap: walk");
+    /*
+      walk() starts from the root page table and traverses the multi-level page-table structure using the indices from va until it reaches the PTE.
+      -- PTE exists → return pte_t *
+      -- Required page-table page is missing and alloc == 0 → return 0
+      -- Required page-table page is missing and alloc == 1 → allocate a new page-table page and continue
+     */
+    pte = walk(pagetable, a, 0);
+    // In the case of lazy allocation, this page might never have been mapped.
+    if (pte == 0)
+    {
+      continue;
+    }
+    // The PTE exists but is not valid, indicating no corresponding physical page.
     if ((*pte & PTE_V) == 0)
-      panic("uvmunmap: not mapped");
+    {
+      continue;
+    }
+    //  This is a non-leaf PTE (points to the next level); user space should not call like this.
     if (PTE_FLAGS(*pte) == PTE_V)
+    {
       panic("uvmunmap: not a leaf");
+    }
+    // free the physical memory if required.
     if (do_free)
     {
       uint64 pa = PTE2PA(*pte);
