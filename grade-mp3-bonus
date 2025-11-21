@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+
+import re
+from gradelib import *
+
+runner = Runner(save("xv6.out"))
+
+# ======================================================================
+#  Bonus Test Cases
+# ======================================================================
+
+
+@test(10, "virtual memory limit test")
+def test_mp3_4():
+    """Test that sbrk correctly enforces MAXVA limit"""
+    runner.run_qemu(shell_script(["mp3_4"]))
+    runner.match("maxvaTest: current heap boundary is at")
+    runner.match("maxvaTest: OK")
+
+
+@test(10, "heap boundary protection", parent=test_mp3_4)
+def test_mp3_5():
+    """Test that accessing beyond heap boundary kills the process"""
+    runner.run_qemu(shell_script(["mp3_5"]))
+    runner.match("overheap: initial haep at",
+                 "overheap: about to write to",
+                 no=[r"overheap: ERROR"])
+
+
+@test(10, "Swap-out and page fault restoration", parent=test_mp3_5)
+def test_mp3_6():
+    """Test that swapped pages can be restored on page fault with correct data"""
+    runner.run_qemu(shell_script(["mp3_6"]))
+    runner.match("------------------------ Before Swap-Out ------------------------",
+                 "------------------------ After Swap-Out ------------------------",
+                 "------------------------ After Swap-In ------------------------",
+                 no=[r"mismatch at offset", r"data corrupted"])
+
+
+# ======================================================================
+#  Run All Tests
+# ======================================================================
+
+run_tests()

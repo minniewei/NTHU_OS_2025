@@ -49,19 +49,28 @@ sys_sbrk(void)
   {
     uint64 newsz = oldsz + n;
     // Check for overflow or excessively large size if needed
+    if (newsz < oldsz)
+      return -1;
+    if (newsz >= MAXVA)
+      return -1;
+    // Check heap limit (128MB)
+    if (newsz > (128L << 20))
+      return -1;
     p->sz = newsz;
     return oldsz;
   }
+
   // n == 0 : just return current size
   if (n == 0)
   {
     return oldsz;
   }
+
   // n < 0 : decrease heap size
   if (n < 0)
   {
     uint64 newsz = oldsz + n;
-    if (newsz > oldsz) // overflow check
+    if (newsz > oldsz)
       return -1;
     if (newsz < 0)
       return -1;
