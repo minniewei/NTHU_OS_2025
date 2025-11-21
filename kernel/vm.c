@@ -6,8 +6,15 @@
 #include "defs.h"
 #include "fs.h"
 #include "spinlock.h"
+#include "sleeplock.h"
+#include "buf.h"
 #include "proc.h"
 #include "vm.h"
+
+// Simple in-memory swap space (2MB = 512 pages)
+#define MAX_SWAP_PAGES 512
+char swap_space[MAX_SWAP_PAGES * PGSIZE];
+static int next_swap_block = 1;
 
 /*
  * the kernel's page table.
@@ -475,15 +482,24 @@ int copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 /* Helper function to print the flags of a PTE */
 static void vmprint_flags(pte_t pte)
 {
-  printf(" V");
+  // Valid bit (in memory)
+  if (pte & PTE_V)
+    printf(" V");
+  // Readable
   if (pte & PTE_R)
     printf(" R");
+  // Writable
   if (pte & PTE_W)
     printf(" W");
+  // Executable
   if (pte & PTE_X)
     printf(" X");
+  // User accessible
   if (pte & PTE_U)
     printf(" U");
+  // Swapped out (on disk)
+  if (pte & PTE_S)
+    printf(" S");
 }
 
 /* Construct a virtual address by combining va_prefix with the index i at the specified level. */
@@ -503,7 +519,8 @@ static void vmprint_walk(pagetable_t pt, int level, uint64 va_prefix)
   for (int i = 0; i < 512; i++)
   {
     pte_t pte = pt[i];
-    if ((pte & PTE_V) == 0)
+    // Skip if PTE is completely empty (not valid and not swapped)
+    if ((pte & PTE_V) == 0 && (pte & PTE_S) == 0)
       continue;
 
     // A valid PTE may either map to a physical page (leaf) or point to a lower-level page table (non-leaf), depending on whether the R/W/X bits are set.
@@ -516,11 +533,19 @@ static void vmprint_walk(pagetable_t pt, int level, uint64 va_prefix)
 
     // Print according to the specified format
     printf("%d: pte=%p va=%p pa=%p", i, (void *)pte, (void *)va_nofs, (void *)pa_nofs);
+
+    // If swapped, show block number
+    if (pte & PTE_S)
+    {
+      uint64 blockno = pa_nofs >> 12; // Extract block number from PTE
+      printf(" blockno=%p", (void *)blockno);
+    }
+
     vmprint_flags(pte);
     printf("\n");
 
-    // Recursive call for non-leaf PTEs
-    if ((pte & (PTE_R | PTE_W | PTE_X)) == 0)
+    // Recursive call for non-leaf PTEs (only if valid)
+    if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0)
     {
       vmprint_walk((pagetable_t)pa_nofs, level - 1, va_nofs);
     }
@@ -537,6 +562,131 @@ void vmprint(pagetable_t pagetable)
 /* Map pages to physical memory or swap space. */
 int madvise(uint64 base, uint64 len, int advice)
 {
-  /* mp3 TODO */
-  panic("not implemented yet\n");
+  struct proc *p = myproc();
+
+  // Check if the memory region is valid
+  if (base + len > p->sz)
+  {
+    return -1;
+  }
+
+  if (advice == MADV_NORMAL)
+  {
+    // No special treatment
+    return 0;
+  }
+  else if (advice == MADV_DONTNEED)
+  {
+    // Swap out pages in the region
+    uint64 va_start = PGROUNDDOWN(base);
+    uint64 va_end = PGROUNDUP(base + len);
+
+    for (uint64 va = va_start; va < va_end; va += PGSIZE)
+    {
+      pte_t *pte = walk(p->pagetable, va, 0);
+
+      // Skip if PTE doesn't exist or page not valid
+      if (pte == 0 || (*pte & PTE_V) == 0)
+      {
+        continue;
+      }
+
+      // Get physical address
+      uint64 pa = PTE2PA(*pte);
+
+      // Allocate a swap block
+      if (next_swap_block >= MAX_SWAP_PAGES)
+      {
+        return -1; // Out of swap space
+      }
+      uint blockno = next_swap_block++;
+
+      // Copy page to swap space (direct memory copy)
+      memmove(&swap_space[blockno * PGSIZE], (void *)pa, PGSIZE);
+
+      // Free physical memory
+      kfree((void *)pa);
+
+      // Update PTE: clear V bit, set S bit, store block number
+      uint64 flags = PTE_FLAGS(*pte);
+      flags &= ~PTE_V; // Clear valid bit
+      flags |= PTE_S;  // Set swapped bit
+      *pte = ((uint64)blockno << 12) | flags;
+    }
+
+    return 0;
+  }
+  else if (advice == MADV_WILLNEED)
+  {
+    // Swap in pages or allocate new pages
+    uint64 va_start = PGROUNDDOWN(base);
+    uint64 va_end = PGROUNDUP(base + len);
+
+    for (uint64 va = va_start; va < va_end; va += PGSIZE)
+    {
+      pte_t *pte = walk(p->pagetable, va, 0);
+
+      if (pte == 0)
+      {
+        // Page table entry doesn't exist - allocate new page
+        char *mem = kalloc();
+        if (mem == 0)
+        {
+          return -1;
+        }
+        memset(mem, 0, PGSIZE);
+
+        pte = walk(p->pagetable, va, 1);
+        if (pte == 0)
+        {
+          kfree(mem);
+          return -1;
+        }
+        *pte = PA2PTE(mem) | PTE_V | PTE_R | PTE_W | PTE_X | PTE_U;
+      }
+      else if (*pte & PTE_S)
+      {
+        // Page is swapped - swap in
+        uint64 blockno = (*pte >> 12) & 0xFFFFFFFFF;
+        uint64 flags = PTE_FLAGS(*pte);
+
+        // Check block number is valid
+        if (blockno >= MAX_SWAP_PAGES)
+        {
+          return -1;
+        }
+
+        // Allocate physical memory
+        char *mem = kalloc();
+        if (mem == 0)
+        {
+          return -1;
+        }
+
+        // Copy from swap space (direct memory copy)
+        memmove(mem, &swap_space[blockno * PGSIZE], PGSIZE);
+
+        // Update PTE: set V bit, clear S bit
+        flags &= ~PTE_S;
+        flags |= PTE_V;
+        *pte = PA2PTE(mem) | flags;
+      }
+      else if ((*pte & PTE_V) == 0)
+      {
+        // Page not valid and not swapped - allocate new
+        char *mem = kalloc();
+        if (mem == 0)
+        {
+          return -1;
+        }
+        memset(mem, 0, PGSIZE);
+        *pte = PA2PTE(mem) | PTE_V | PTE_R | PTE_W | PTE_X | PTE_U;
+      }
+      // else page is already in memory, do nothing
+    }
+
+    return 0;
+  }
+
+  return -1;
 }
