@@ -612,7 +612,7 @@ int madvise(uint64 base, uint64 len, int advice)
       uint64 flags = PTE_FLAGS(*pte);
       flags &= ~PTE_V; // Clear valid bit
       flags |= PTE_S;  // Set swapped bit
-      *pte = ((uint64)blockno << 12) | flags;
+      *pte = BLOCKNO2PTE(blockno) | flags;
     }
 
     return 0;
@@ -648,7 +648,7 @@ int madvise(uint64 base, uint64 len, int advice)
       else if (*pte & PTE_S)
       {
         // Page is swapped on disk - swap in
-        uint64 blockno = (*pte >> 12) & 0xFFFFFFFFF;
+        uint blockno = PTE2BLOCKNO(*pte);
         uint64 flags = PTE_FLAGS(*pte);
 
         // Allocate physical memory

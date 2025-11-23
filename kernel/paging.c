@@ -26,7 +26,7 @@ int handle_pgfault(pagetable_t pagetable, uint64 va)
     if (pte != 0 && (*pte & PTE_S))
     {
         // Page is swapped on disk - swap in
-        uint64 blockno = (*pte >> 12) & 0xFFFFFFFFF;
+        uint blockno = PTE2BLOCKNO(*pte);
         uint64 flags = PTE_FLAGS(*pte);
 
         // Allocate physical memory
