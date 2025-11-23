@@ -33,7 +33,7 @@ def test_mp3_6():
     runner.run_qemu(shell_script(["mp3_6"]))
     runner.match("------------------------ Before Swap-Out ------------------------",
                  "------------------------ After Swap-Out ------------------------",
-                 "------------------------ After Swap-In -------------------------",
+                 "------------------------ After Swap-In ------------------------",
                  no=[r"mismatch at offset", r"data corrupted"])
 
 

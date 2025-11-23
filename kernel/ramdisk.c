@@ -1,5 +1,5 @@
 //
-// ramdisk for swap space
+// ramdisk that uses the disk image loaded by qemu -initrd fs.img
 //
 
 #include "types.h"
@@ -12,41 +12,35 @@
 #include "fs.h"
 #include "buf.h"
 
-// Simple in-memory swap space (2MB = 512 blocks of 4KB each)
-#define SWAPSIZE (512 * BSIZE)
-static char swapspace[SWAPSIZE];
-
 void ramdiskinit(void)
 {
-  // Initialize swap space to zero
-  memset(swapspace, 0, SWAPSIZE);
 }
 
-// If B_DIRTY is set, write buf to swap, clear B_DIRTY, set B_VALID.
-// Else if B_VALID is not set, read buf from swap, set B_VALID.
+// If B_DIRTY is set, write buf to disk, clear B_DIRTY, set B_VALID.
+// Else if B_VALID is not set, read buf from disk, set B_VALID.
 void ramdiskrw(struct buf *b)
 {
   if (!holdingsleep(&b->lock))
     panic("ramdiskrw: buf not locked");
+  if ((b->flags & (B_VALID | B_DIRTY)) == B_VALID)
+    panic("ramdiskrw: nothing to do");
 
-  // Check if block number is within swap space
-  if (b->blockno >= SWAPSIZE / BSIZE)
+  if (b->blockno >= FSSIZE)
     panic("ramdiskrw: blockno too big");
 
-  uint64 offset = b->blockno * BSIZE;
-  char *addr = swapspace + offset;
+  uint64 diskaddr = b->blockno * BSIZE;
+  char *addr = (char *)RAMDISK + diskaddr;
 
-  // Always perform the operation - either write or read
-  if (b->disk == 1)
+  if (b->flags & B_DIRTY)
   {
-    // write to swap
+    // write
     memmove(addr, b->data, BSIZE);
-    b->disk = 0;
+    b->flags &= ~B_DIRTY;
   }
   else
   {
-    // read from swap
+    // read
     memmove(b->data, addr, BSIZE);
+    b->flags |= B_VALID;
   }
-  b->valid = 1;
 }

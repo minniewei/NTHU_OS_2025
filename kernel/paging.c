@@ -10,9 +10,6 @@
 #include "proc.h"
 #include "vm.h"
 
-// Access swap space defined in vm.c
-extern char swap_space[];
-
 int handle_pgfault(pagetable_t pagetable, uint64 va)
 {
     struct proc *p = myproc();
@@ -28,7 +25,7 @@ int handle_pgfault(pagetable_t pagetable, uint64 va)
     pte_t *pte = walk(pagetable, va0, 0);
     if (pte != 0 && (*pte & PTE_S))
     {
-        // Page is swapped - swap in from memory swap space
+        // Page is swapped on disk - swap in
         uint64 blockno = (*pte >> 12) & 0xFFFFFFFFF;
         uint64 flags = PTE_FLAGS(*pte);
 
@@ -39,8 +36,11 @@ int handle_pgfault(pagetable_t pagetable, uint64 va)
             return -1;
         }
 
-        // Copy from swap space (direct memory copy)
-        memmove(mem, &swap_space[blockno * PGSIZE], PGSIZE);
+        // Read page from disk
+        begin_op();
+        read_page_from_disk(ROOTDEV, mem, blockno);
+        bfree_page(ROOTDEV, blockno);
+        end_op();
 
         // Update PTE: set V bit, clear S bit
         flags &= ~PTE_S;

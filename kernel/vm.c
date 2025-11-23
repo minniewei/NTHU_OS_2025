@@ -11,10 +11,8 @@
 #include "proc.h"
 #include "vm.h"
 
-// Simple in-memory swap space (2MB = 512 pages)
-#define MAX_SWAP_PAGES 512
-char swap_space[MAX_SWAP_PAGES * PGSIZE];
-static int next_swap_block = 1;
+// Use disk for swap instead of memory
+// We use ROOTDEV (device 1) for swap operations
 
 /*
  * the kernel's page table.
@@ -577,7 +575,7 @@ int madvise(uint64 base, uint64 len, int advice)
   }
   else if (advice == MADV_DONTNEED)
   {
-    // Swap out pages in the region
+    // Swap out pages in the region to disk
     uint64 va_start = PGROUNDDOWN(base);
     uint64 va_end = PGROUNDUP(base + len);
 
@@ -594,15 +592,18 @@ int madvise(uint64 base, uint64 len, int advice)
       // Get physical address
       uint64 pa = PTE2PA(*pte);
 
-      // Allocate a swap block
-      if (next_swap_block >= MAX_SWAP_PAGES)
+      // Allocate a block on disk for swap
+      begin_op();
+      uint blockno = balloc_page(ROOTDEV);
+      if (blockno == 0)
       {
+        end_op();
         return -1; // Out of swap space
       }
-      uint blockno = next_swap_block++;
 
-      // Copy page to swap space (direct memory copy)
-      memmove(&swap_space[blockno * PGSIZE], (void *)pa, PGSIZE);
+      // Write page to disk
+      write_page_to_disk(ROOTDEV, (char *)pa, blockno);
+      end_op();
 
       // Free physical memory
       kfree((void *)pa);
@@ -646,15 +647,9 @@ int madvise(uint64 base, uint64 len, int advice)
       }
       else if (*pte & PTE_S)
       {
-        // Page is swapped - swap in
+        // Page is swapped on disk - swap in
         uint64 blockno = (*pte >> 12) & 0xFFFFFFFFF;
         uint64 flags = PTE_FLAGS(*pte);
-
-        // Check block number is valid
-        if (blockno >= MAX_SWAP_PAGES)
-        {
-          return -1;
-        }
 
         // Allocate physical memory
         char *mem = kalloc();
@@ -663,8 +658,11 @@ int madvise(uint64 base, uint64 len, int advice)
           return -1;
         }
 
-        // Copy from swap space (direct memory copy)
-        memmove(mem, &swap_space[blockno * PGSIZE], PGSIZE);
+        // Read page from disk
+        begin_op();
+        read_page_from_disk(ROOTDEV, mem, blockno);
+        bfree_page(ROOTDEV, blockno);
+        end_op();
 
         // Update PTE: set V bit, clear S bit
         flags &= ~PTE_S;

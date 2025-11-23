@@ -611,15 +611,19 @@ int madvise(uint64 base, uint64 len, int advice)
       // Get physical address
       uint64 pa = PTE2PA(*pte);
 
-      // Allocate a swap block
-      if (next_swap_block >= MAX_SWAP_PAGES)
+
+      // Allocate a block on disk for swap
+      begin_op();
+      uint blockno = balloc_page(ROOTDEV);
+      if (blockno == 0)
       {
+        end_op();
         return -1; // Out of swap space
       }
-      uint blockno = next_swap_block++;
 
-      // Copy page to swap space (direct memory copy)
-      memmove(&swap_space[blockno * PGSIZE], (void *)pa, PGSIZE);
+      // Write page to disk
+      write_page_to_disk(ROOTDEV, (char *)pa, blockno);
+      end_op();
 
       // Free physical memory
       kfree((void *)pa);
@@ -667,12 +671,6 @@ int madvise(uint64 base, uint64 len, int advice)
         uint64 blockno = (*pte >> 12) & 0xFFFFFFFFF;
         uint64 flags = PTE_FLAGS(*pte);
 
-        // Check block number is valid
-        if (blockno >= MAX_SWAP_PAGES)
-        {
-          return -1;
-        }
-
         // Allocate physical memory
         char *mem = kalloc();
         if (mem == 0)
@@ -680,8 +678,11 @@ int madvise(uint64 base, uint64 len, int advice)
           return -1;
         }
 
-        // Copy from swap space (direct memory copy)
-        memmove(mem, &swap_space[blockno * PGSIZE], PGSIZE);
+        // Read page from disk
+        begin_op();
+        read_page_from_disk(ROOTDEV, mem, blockno);
+        bfree_page(ROOTDEV, blockno);
+        end_op();
 
         // Update PTE: set V bit, clear S bit
         flags &= ~PTE_S;
@@ -707,36 +708,6 @@ int madvise(uint64 base, uint64 len, int advice)
 
   return -1;
 }
-```
-###### (ramdisk.c) 實踐 swap-in、swap-out
-```
-void ramdiskrw(struct buf *b)
-{
-  if (!holdingsleep(&b->lock))
-    panic("ramdiskrw: buf not locked");
-
-  // Check if block number is within swap space
-  if (b->blockno >= SWAPSIZE / BSIZE)
-    panic("ramdiskrw: blockno too big");
-
-  uint64 offset = b->blockno * BSIZE;
-  char *addr = swapspace + offset;
-
-  // Always perform the operation - either write or read
-  if (b->disk == 1)
-  {
-    // write to swap
-    memmove(addr, b->data, BSIZE);
-    b->disk = 0;
-  }
-  else
-  {
-    // read from swap
-    memmove(b->data, addr, BSIZE);
-  }
-  b->valid = 1;
-}
-
 ```
 ## Experiment
 ![image](https://hackmd.io/_uploads/B1xM9NkWWe.png)
