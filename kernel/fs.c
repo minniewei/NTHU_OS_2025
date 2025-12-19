@@ -798,9 +798,8 @@ skipelem(char *path, char *name)
 static struct inode *
 namex(char *path, int nameiparent, char *name)
 {
-  // TODO: Symbolic Link to Directories
-  // Modify this function to deal with symbolic links to directories.
   struct inode *ip, *next;
+  int depth = 0;
 
   if (*path == '/')
     ip = iget(ROOTDEV, ROOTINO);
@@ -827,6 +826,36 @@ namex(char *path, int nameiparent, char *name)
       return 0;
     }
     iunlockput(ip);
+
+    // --  Deal with Symbolic Links  --
+    while (next->type == T_SYMLINK)
+    {
+      if (depth >= 5)
+      { // 循環偵測
+        iput(next);
+        return 0;
+      }
+      depth++;
+
+      ilock(next);
+      char target[MAXPATH];
+      // Get the target path from the symbolic link inode
+      if (readi(next, 0, (uint64)target, 0, MAXPATH) <= 0)
+      {
+        iunlockput(next);
+        return 0;
+      }
+      iunlockput(next);
+
+      // Re-parse the symbolic link path from the root directory
+      // only considers absolute paths
+      struct inode *temp = namei(target);
+      iput(next);
+      if (temp == 0)
+        return 0;
+      next = temp;
+    }
+
     ip = next;
   }
   if (nameiparent)

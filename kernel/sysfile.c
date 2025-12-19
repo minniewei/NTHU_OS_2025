@@ -202,7 +202,6 @@ sys_unlink(void)
 
   if (argstr(0, path, MAXPATH) < 0)
     return -1;
-  printf("in line 205");
   begin_op();
   if ((dp = nameiparent(path, name)) == 0)
   {
@@ -236,9 +235,7 @@ sys_unlink(void)
   iunlockput(dp);
   ip->nlink--;
   iupdate(ip);
-  printf("unlink : in line 243\n");
   iunlockput(ip);
-  printf("unlink : in line 244\n");
   end_op();
 
   return 0;
@@ -487,13 +484,10 @@ sys_mknod(void)
 uint64
 sys_chdir(void)
 {
-  // TODO: Symbolic Link to Directories
-  // You can modify this to cd into a symbolic link
-  // The modification may not be necessary,
-  // depending on you implementation.
   char path[MAXPATH];
   struct inode *ip;
   struct proc *p = myproc();
+  int depth = 0;
 
   begin_op();
   if (argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0)
@@ -502,16 +496,54 @@ sys_chdir(void)
     return -1;
   }
   ilock(ip);
+  while (ip->type == T_SYMLINK)
+  {
+    if (depth >= 5)
+    { // 深度限制為 5
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    depth++;
+
+    char target[MAXPATH];
+    // readi 需要 inode 被 locked
+    int n = readi(ip, 0, (uint64)target, 0, MAXPATH);
+    if (n <= 0)
+    {
+      iunlockput(ip);
+      end_op();
+      return -1;
+    }
+    target[n] = '\0';
+
+    // 必須先解鎖當前連結，才能 namei 下一個路徑，否則會 Deadlock
+    iunlockput(ip);
+
+    // 重新解析目標路徑
+    if ((ip = namei(target)) == 0)
+    {
+      end_op();
+      return -1;
+    }
+    ilock(ip);
+  }
+
+  // 3. 檢查最終目標是否為目錄
   if (ip->type != T_DIR)
   {
     iunlockput(ip);
     end_op();
     return -1;
   }
-  iunlock(ip);
+
+  iunlock(ip); // 解鎖但保留引用計數 (Reference count)
+
+  // 4. 更換進程的當前工作目錄
   iput(p->cwd);
-  end_op();
   p->cwd = ip;
+
+  end_op(); // 結束磁碟交易
   return 0;
 }
 
