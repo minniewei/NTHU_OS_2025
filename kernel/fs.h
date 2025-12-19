@@ -25,9 +25,9 @@ struct superblock
 #define FSMAGIC 0x10203040
 
 // (HW4-1) Large File Configuration
-#define NDIRECT 10
+#define NDIRECT 11
 #define NDOUBLE 1
-#define NSINGLE 2
+#define NSINGLE 1
 #define NINDIRECT (BSIZE / sizeof(uint))
 #define NDBL (NINDIRECT * NINDIRECT)
 #define MAXFILE (NDIRECT + NINDIRECT + NDOUBLE * NDBL)
@@ -35,12 +35,12 @@ struct superblock
 // On-disk inode structure
 struct dinode
 {
-  short type;     // File type
-  short major;    // Major device number (T_DEVICE only)
-  short minor;    // Minor device number (T_DEVICE only)
-  short nlink;    // Number of links to inode in file system
-  uint size;      // Size of file (bytes)
-  uint addrs[13]; // Data block addresses
+  short type;              // File type
+  short major;             // Major device number (T_DEVICE only)
+  short minor;             // Minor device number (T_DEVICE only)
+  short nlink;             // Number of links to inode in file system
+  uint size;               // Size of file (bytes)
+  uint addrs[NDIRECT + 2]; // Data block addresses
 };
 
 // Inodes per block.

@@ -387,96 +387,118 @@ void iunlockput(struct inode *ip)
 static uint
 bmap(struct inode *ip, uint bn)
 {
-  uint addr;
+  uint addr, *a;
   struct buf *bp;
-  uint *a;
 
-  // -----------------------
-  // 1) Direct blocks
-  // -----------------------
+  // 1) 直接區塊 (0 - 10)
   if (bn < NDIRECT)
   {
     if ((addr = ip->addrs[bn]) == 0)
     {
       addr = balloc(ip->dev);
+      if (addr == 0)
+        return 0;
       ip->addrs[bn] = addr;
     }
     return addr;
   }
-
-  // -----------------------
-  // 2) Singly-indirect blocks (if NSINGLE=1)
-  // inode slot: addrs[NDIRECT]
-  // -----------------------
   bn -= NDIRECT;
-  if (NSINGLE && bn < NINDIRECT)
+
+  // 2) 一級間接區塊 (原本的 addrs[11])
+  if (bn < NINDIRECT)
   {
+    // 如果一級間接索引塊還沒分配
     if ((addr = ip->addrs[NDIRECT]) == 0)
     {
-      addr = balloc(ip->dev); // allocate the indirect block
+      addr = balloc(ip->dev);
+      if (addr == 0)
+        return 0;
+
+      // 【關鍵】分配後立刻清零，防止垃圾指標
+      struct buf *zbp = bread(ip->dev, addr);
+      memset(zbp->data, 0, BSIZE);
+      log_write(zbp);
+      brelse(zbp);
+
       ip->addrs[NDIRECT] = addr;
     }
-    bp = bread(ip->dev, addr);
+
+    bp = bread(ip->dev, ip->addrs[NDIRECT]);
     a = (uint *)bp->data;
     if ((addr = a[bn]) == 0)
     {
-      addr = balloc(ip->dev); // allocate the data block
-      a[bn] = addr;
-      log_write(bp); // record modified indirect block
+      addr = balloc(ip->dev);
+      if (addr != 0)
+      {
+        a[bn] = addr;
+        log_write(bp);
+      }
     }
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT;
 
-  // -----------------------
-  // 3) Doubly-indirect blocks (NDOUBLE >= 1)
-  // inode slots: addrs[dbl_base + which]
-  // Each doubly block has 256 pointers to singly-indirect blocks,
-  // and each singly-indirect block has 256 pointers to data blocks.
-  // -----------------------
-  if (NSINGLE)
-    bn -= NINDIRECT; // skip single-indirect region
-
-  if (NDOUBLE && bn < (uint)(NDOUBLE * NDBL))
+  // 3) 雙重間接區塊 (原本的 addrs[12])
+  if (bn < NDBL)
   {
-    int dbl_base = NDIRECT + NSINGLE; // first doubly slot index in addrs[]
-    uint which = bn / NDBL;           // which doubly-indirect slot
-    uint off = bn % NDBL;
-    uint idx1 = off / NINDIRECT; // index in doubly block -> singly block ptr
-    uint idx2 = off % NINDIRECT; // index in singly block -> data block ptr
+    int dbl_idx = NDIRECT + NSINGLE;
 
-    // 3-1) Ensure doubly-indirect block exists
-    if ((addr = ip->addrs[dbl_base + which]) == 0)
+    // 3-1. 確保雙重間接一級索引塊存在 (addrs[12])
+    if ((addr = ip->addrs[dbl_idx]) == 0)
     {
-      addr = balloc(ip->dev); // allocate doubly-indirect block
-      ip->addrs[dbl_base + which] = addr;
+      addr = balloc(ip->dev);
+      if (addr == 0)
+        return 0;
+
+      // 【關鍵】分配後立刻清零
+      struct buf *zbp = bread(ip->dev, addr);
+      memset(zbp->data, 0, BSIZE);
+      log_write(zbp);
+      brelse(zbp);
+
+      ip->addrs[dbl_idx] = addr;
     }
 
-    // Read doubly-indirect block
-    bp = bread(ip->dev, addr);
+    bp = bread(ip->dev, ip->addrs[dbl_idx]);
     a = (uint *)bp->data;
+    uint i1 = bn / NINDIRECT; // 第一層索引
+    uint i2 = bn % NINDIRECT; // 第二層索引
 
-    // 3-2) Ensure the pointed singly-indirect block exists
-    uint saddr = a[idx1];
+    // 3-2. 確保二級索引塊存在
+    uint saddr = a[i1];
     if (saddr == 0)
     {
-      saddr = balloc(ip->dev); // allocate singly-indirect block
-      a[idx1] = saddr;
-      log_write(bp); // record modified doubly block
-    }
-    brelse(bp);
+      saddr = balloc(ip->dev);
+      if (saddr == 0)
+      {
+        brelse(bp);
+        return 0;
+      }
+      // 【關鍵】分配後立刻清零
+      struct buf *zbp = bread(ip->dev, saddr);
+      memset(zbp->data, 0, BSIZE);
+      log_write(zbp);
+      brelse(zbp);
 
-    // 3-3) Read that singly-indirect block and ensure data block exists
+      a[i1] = saddr;
+      log_write(bp);
+    }
+    brelse(bp); // 釋放第一層索引塊
+
+    // 3-3. 讀取二級索引塊並找到最終資料塊
     bp = bread(ip->dev, saddr);
     a = (uint *)bp->data;
-    if ((addr = a[idx2]) == 0)
+    if ((addr = a[i2]) == 0)
     {
-      addr = balloc(ip->dev); // allocate data block
-      a[idx2] = addr;
-      log_write(bp); // record modified singly block
+      addr = balloc(ip->dev);
+      if (addr != 0)
+      {
+        a[i2] = addr;
+        log_write(bp);
+      }
     }
     brelse(bp);
-
     return addr;
   }
 
@@ -549,11 +571,9 @@ void itrunc(struct inode *ip)
         uint saddr = a1[j];
         if (saddr == 0)
           continue;
-
         // Read singly-indirect block
         bp2 = bread(ip->dev, saddr);
         a2 = (uint *)bp2->data;
-
         for (k = 0; k < NINDIRECT; k++)
         {
           if (a2[k])
@@ -562,18 +582,15 @@ void itrunc(struct inode *ip)
             a2[k] = 0;
           }
         }
-
         brelse(bp2);
         bfree(ip->dev, saddr);
         a1[j] = 0;
       }
-
       brelse(bp1);
       bfree(ip->dev, daddr);
       ip->addrs[dbl_base + i] = 0;
     }
   }
-
   ip->size = 0;
   iupdate(ip);
 }
