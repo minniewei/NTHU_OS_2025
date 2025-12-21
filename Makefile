@@ -191,7 +191,6 @@ UPROGS=\
 	$U/_symlinkdir\
 	$U/_symlinkfile\
 	$U/_bigfile\
-	$U/_superbigfile
 
 
 
