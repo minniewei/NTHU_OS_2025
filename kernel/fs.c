@@ -796,7 +796,7 @@ skipelem(char *path, char *name)
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
 static struct inode *
-namex(char *path, int nameiparent, char *name)
+namex(char *path, int nameiparent, char *name, int notfollow_last)
 {
   struct inode *ip, *next;
   int depth = 0;
@@ -827,8 +827,16 @@ namex(char *path, int nameiparent, char *name)
     }
     iunlockput(ip);
 
+    // If notfollow_last is set and this is the last path element,
+    // do not follow symbolic links.
+    if (notfollow_last && next->type == T_SYMLINK && *path == '\0')
+    {
+      iunlockput(ip);
+      return next;
+    }
+
     // --  Deal with Symbolic Links  --
-    while (next->type == T_SYMLINK)
+    while (next->type == T_SYMLINK && *path != '\0')
     {
       if (depth >= 5)
       { // 循環偵測
@@ -870,11 +878,17 @@ struct inode *
 namei(char *path)
 {
   char name[DIRSIZ];
-  return namex(path, 0, name);
+  return namex(path, 0, name, 0);
 }
 
 struct inode *
 nameiparent(char *path, char *name)
 {
-  return namex(path, 1, name);
+  return namex(path, 1, name, 0);
+}
+
+struct inode *namei_nofollow(char *path)
+{
+  char name[DIRSIZ];
+  return namex(path, 0, name, 1);
 }
