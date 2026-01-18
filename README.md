@@ -5,3 +5,5 @@ Below are the changes made to xv6 in each branch:
 * os25-mp2: Process scheduling
 * os25-mp3: Memory management
 * os25-mp4: Disk scheduling
+
+Each branch is independent and demonstrates optimizations for a specific aspect of the xv6 operating system.
